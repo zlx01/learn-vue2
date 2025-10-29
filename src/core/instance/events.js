@@ -74,6 +74,7 @@ export function eventsMixin (Vue: Class<Component>) {
       vm.$off(event, on)
       fn.apply(vm, arguments)
     }
+    // 保存原来的处理器是为了在$off的时候能够找到对应的处理器
     on.fn = fn
     vm.$on(event, on)
     return vm

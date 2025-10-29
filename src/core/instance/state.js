@@ -316,6 +316,7 @@ function createWatcher (
   if (typeof handler === 'string') {
     handler = vm[handler]
   }
+  // 参数归一化
   return vm.$watch(expOrFn, handler, options)
 }
 

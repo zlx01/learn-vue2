@@ -1,14 +1,12 @@
 /* @flow */
 
-import config from '../config'
 import { initProxy } from './proxy'
 import { initState } from './state'
 import { initRender } from './render'
 import { initEvents } from './events'
-import { mark, measure } from '../util/perf'
 import { initLifecycle, callHook } from './lifecycle'
 import { initProvide, initInjections } from './inject'
-import { extend, mergeOptions, formatComponentName } from '../util/index'
+import { extend, mergeOptions } from '../util/index'
 
 let uid = 0
 
@@ -17,14 +15,6 @@ export function initMixin (Vue: Class<Component>) {
     const vm: Component = this
     // a uid
     vm._uid = uid++
-
-    let startTag, endTag
-    /* istanbul ignore if */
-    if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
-      startTag = `vue-perf-start:${vm._uid}`
-      endTag = `vue-perf-end:${vm._uid}`
-      mark(startTag)
-    }
 
     // a flag to avoid this being observed
     vm._isVue = true
@@ -35,6 +25,9 @@ export function initMixin (Vue: Class<Component>) {
       // internal component options needs special treatment.
       initInternalComponent(vm, options)
     } else {
+      console.log('Customer Component')
+      console.log('vm', vm)
+      console.log('options', options)
       vm.$options = mergeOptions(
         resolveConstructorOptions(vm.constructor),
         options || {},
@@ -58,13 +51,6 @@ export function initMixin (Vue: Class<Component>) {
     initProvide(vm) // resolve provide after data/props
     callHook(vm, 'created')
 
-    /* istanbul ignore if */
-    if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
-      vm._name = formatComponentName(vm, false)
-      mark(endTag)
-      measure(`vue ${vm._name} init`, startTag, endTag)
-    }
-
     if (vm.$options.el) {
       vm.$mount(vm.$options.el)
     }
@@ -72,7 +58,13 @@ export function initMixin (Vue: Class<Component>) {
 }
 
 export function initInternalComponent (vm: Component, options: InternalComponentOptions) {
+  console.log('initInternalComponent')
+  console.log('vm', vm)
+  console.log('options', options)
   const opts = vm.$options = Object.create(vm.constructor.options)
+  // vm.constructor.options === Vue.options
+  // 从 global-api/index.js 可以找到 Vue.options 的定义
+  console.log('vm.constructor.options', vm.constructor.options)
   // doing this because it's faster than dynamic enumeration.
   const parentVnode = options._parentVnode
   opts.parent = options.parent
@@ -88,9 +80,12 @@ export function initInternalComponent (vm: Component, options: InternalComponent
     opts.render = options.render
     opts.staticRenderFns = options.staticRenderFns
   }
+
+  console.log('vm.$options', vm.$options)
 }
 
 export function resolveConstructorOptions (Ctor: Class<Component>) {
+  console.log('Ctor', Ctor)
   let options = Ctor.options
   if (Ctor.super) {
     const superOptions = resolveConstructorOptions(Ctor.super)
@@ -111,6 +106,7 @@ export function resolveConstructorOptions (Ctor: Class<Component>) {
       }
     }
   }
+  console.log('ConstructorOptions', options)
   return options
 }
 

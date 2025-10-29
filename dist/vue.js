@@ -1,6 +1,6 @@
 /*!
  * Vue.js v2.6.14
- * (c) 2014-2021 Evan You
+ * (c) 2014-2024 Evan You
  * Released under the MIT License.
  */
 (function (global, factory) {
@@ -3840,6 +3840,7 @@
         vm.$off(event, on);
         fn.apply(vm, arguments);
       }
+      // 保存原来的处理器是为了在$off的时候能够找到对应的处理器
       on.fn = fn;
       vm.$on(event, on);
       return vm
@@ -4914,29 +4915,15 @@
     if (typeof handler === 'string') {
       handler = vm[handler];
     }
+    // 参数归一化
     return vm.$watch(expOrFn, handler, options)
   }
 
   function stateMixin (Vue) {
-    // flow somehow has problems with directly declared definition object
-    // when using Object.defineProperty, so we have to procedurally build up
-    // the object here.
     var dataDef = {};
     dataDef.get = function () { return this._data };
     var propsDef = {};
     propsDef.get = function () { return this._props };
-    {
-      dataDef.set = function () {
-        warn(
-          'Avoid replacing instance root $data. ' +
-          'Use nested data properties instead.',
-          this
-        );
-      };
-      propsDef.set = function () {
-        warn("$props is readonly.", this);
-      };
-    }
     Object.defineProperty(Vue.prototype, '$data', dataDef);
     Object.defineProperty(Vue.prototype, '$props', propsDef);
 
@@ -4977,14 +4964,6 @@
       // a uid
       vm._uid = uid$3++;
 
-      var startTag, endTag;
-      /* istanbul ignore if */
-      if (config.performance && mark) {
-        startTag = "vue-perf-start:" + (vm._uid);
-        endTag = "vue-perf-end:" + (vm._uid);
-        mark(startTag);
-      }
-
       // a flag to avoid this being observed
       vm._isVue = true;
       // merge options
@@ -4994,6 +4973,9 @@
         // internal component options needs special treatment.
         initInternalComponent(vm, options);
       } else {
+        console.log('Customer Component');
+        console.log('vm', vm);
+        console.log('options', options);
         vm.$options = mergeOptions(
           resolveConstructorOptions(vm.constructor),
           options || {},
@@ -5015,13 +4997,6 @@
       initProvide(vm); // resolve provide after data/props
       callHook(vm, 'created');
 
-      /* istanbul ignore if */
-      if (config.performance && mark) {
-        vm._name = formatComponentName(vm, false);
-        mark(endTag);
-        measure(("vue " + (vm._name) + " init"), startTag, endTag);
-      }
-
       if (vm.$options.el) {
         vm.$mount(vm.$options.el);
       }
@@ -5029,7 +5004,13 @@
   }
 
   function initInternalComponent (vm, options) {
+    console.log('initInternalComponent');
+    console.log('vm', vm);
+    console.log('options', options);
     var opts = vm.$options = Object.create(vm.constructor.options);
+    // vm.constructor.options === Vue.options
+    // 从 global-api/index.js 可以找到 Vue.options 的定义
+    console.log('vm.constructor.options', vm.constructor.options);
     // doing this because it's faster than dynamic enumeration.
     var parentVnode = options._parentVnode;
     opts.parent = options.parent;
@@ -5045,9 +5026,12 @@
       opts.render = options.render;
       opts.staticRenderFns = options.staticRenderFns;
     }
+
+    console.log('vm.$options', vm.$options);
   }
 
   function resolveConstructorOptions (Ctor) {
+    console.log('Ctor', Ctor);
     var options = Ctor.options;
     if (Ctor.super) {
       var superOptions = resolveConstructorOptions(Ctor.super);
@@ -5068,6 +5052,7 @@
         }
       }
     }
+    console.log('ConstructorOptions', options);
     return options
   }
 
@@ -5085,10 +5070,6 @@
   }
 
   function Vue (options) {
-    if (!(this instanceof Vue)
-    ) {
-      warn('Vue is a constructor and should be called with the `new` keyword');
-    }
     this._init(options);
   }
 
