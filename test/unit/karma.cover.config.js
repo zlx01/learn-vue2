@@ -33,7 +33,6 @@ module.exports = function (config) {
         'src/compiler/parser/html-parser.js',
         'src/core/instance/proxy.js',
         'src/sfc/deindent.js',
-        'src/platforms/weex/'
       ]
     }]]
   }

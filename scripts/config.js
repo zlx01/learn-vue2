@@ -6,7 +6,6 @@ const replace = require('rollup-plugin-replace')
 const node = require('rollup-plugin-node-resolve')
 const flow = require('rollup-plugin-flow-no-whitespace')
 const version = process.env.VERSION || require('../package.json').version
-const weexVersion = process.env.WEEX_VERSION || require('../packages/weex-vue-framework/package.json').version
 const featureFlags = require('./feature-flags')
 
 const banner =
@@ -16,14 +15,6 @@ const banner =
   ' * Released under the MIT License.\n' +
   ' */'
 
-const weexFactoryPlugin = {
-  intro () {
-    return 'module.exports = function weexFactory (exports, document) {'
-  },
-  outro () {
-    return '}'
-  }
-}
 
 const aliases = require('./alias')
 const resolve = p => {
@@ -188,29 +179,6 @@ const builds = {
     format: 'cjs',
     external: Object.keys(require('../packages/vue-server-renderer/package.json').dependencies)
   },
-  // Weex runtime factory
-  'weex-factory': {
-    weex: true,
-    entry: resolve('weex/entry-runtime-factory.js'),
-    dest: resolve('packages/weex-vue-framework/factory.js'),
-    format: 'cjs',
-    plugins: [weexFactoryPlugin]
-  },
-  // Weex runtime framework (CommonJS).
-  'weex-framework': {
-    weex: true,
-    entry: resolve('weex/entry-framework.js'),
-    dest: resolve('packages/weex-vue-framework/index.js'),
-    format: 'cjs'
-  },
-  // Weex compiler (CommonJS). Used by Weex's Webpack loader.
-  'weex-compiler': {
-    weex: true,
-    entry: resolve('weex/entry-compiler.js'),
-    dest: resolve('packages/weex-template-compiler/build.js'),
-    format: 'cjs',
-    external: Object.keys(require('../packages/weex-template-compiler/package.json').dependencies)
-  }
 }
 
 function genConfig (name) {
@@ -237,8 +205,7 @@ function genConfig (name) {
 
   // built-in vars
   const vars = {
-    __WEEX__: !!opts.weex,
-    __WEEX_VERSION__: weexVersion,
+    __WEEX__: false,
     __VERSION__: version
   }
   // feature flags

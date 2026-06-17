@@ -1,6 +1,6 @@
 /*!
  * Vue.js v2.6.14
- * (c) 2014-2024 Evan You
+ * (c) 2014-2026 Evan You
  * Released under the MIT License.
  */
 (function (global, factory) {
@@ -3119,12 +3119,6 @@
 
   /*  */
 
-  /*  */
-
-  /*  */
-
-  /*  */
-
   // inline hooks to be invoked on component VNodes during patch
   var componentVNodeHooks = {
     init: function init (vnode, hydrating) {
@@ -4426,7 +4420,7 @@
 
 
 
-  var uid$2 = 0;
+  var uid$1 = 0;
 
   /**
    * A watcher parses an expression, collects dependencies,
@@ -4456,7 +4450,7 @@
       this.deep = this.user = this.lazy = this.sync = false;
     }
     this.cb = cb;
-    this.id = ++uid$2; // uid for batching
+    this.id = ++uid$1; // uid for batching
     this.active = true;
     this.dirty = this.lazy; // for lazy watchers
     this.deps = [];
@@ -4920,10 +4914,25 @@
   }
 
   function stateMixin (Vue) {
+    // flow somehow has problems with directly declared definition object
+    // when using Object.defineProperty, so we have to procedurally build up
+    // the object here.
     var dataDef = {};
     dataDef.get = function () { return this._data };
     var propsDef = {};
     propsDef.get = function () { return this._props };
+    {
+      dataDef.set = function () {
+        warn(
+          'Avoid replacing instance root $data. ' +
+          'Use nested data properties instead.',
+          this
+        );
+      };
+      propsDef.set = function () {
+        warn("$props is readonly.", this);
+      };
+    }
     Object.defineProperty(Vue.prototype, '$data', dataDef);
     Object.defineProperty(Vue.prototype, '$props', propsDef);
 
@@ -4956,13 +4965,13 @@
 
   /*  */
 
-  var uid$3 = 0;
+  var uid$2 = 0;
 
   function initMixin (Vue) {
     Vue.prototype._init = function (options) {
       var vm = this;
       // a uid
-      vm._uid = uid$3++;
+      vm._uid = uid$2++;
 
       // a flag to avoid this being observed
       vm._isVue = true;
