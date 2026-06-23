@@ -8,6 +8,10 @@ import { initLifecycle, callHook } from './lifecycle'
 import { initProvide, initInjections } from './inject'
 import { extend, mergeOptions } from '../util/index'
 
+/**
+ * _uid 的作用是：给每一个 Vue 实例分配一个唯一的内部编号。它不是用户 API，主要给 Vue 内部做实例识别、调试标记、生成唯一 key 用。
+ * [create-functional-component.js (line 25)]里用 hasOwn(parent, '_uid') 判断传进来的 parent 是否是真实组件实例，还是已经包装过的函数式组件 context。
+ */
 let uid = 0
 
 export function initMixin (Vue: Class<Component>) {
@@ -25,7 +29,8 @@ export function initMixin (Vue: Class<Component>) {
       // internal component options needs special treatment.
       initInternalComponent(vm, options)
     } else {
-      console.log('Customer Component')
+      // new Vue() 的时候会走这里
+      console.log('User Component')
       console.log('vm', vm)
       console.log('options', options)
       vm.$options = mergeOptions(
@@ -33,6 +38,8 @@ export function initMixin (Vue: Class<Component>) {
         options || {},
         vm
       )
+      console.log('After merging ConstructorOptions and Options')
+      console.log('vm.$options', vm.$options)
     }
     /* istanbul ignore else */
     if (process.env.NODE_ENV !== 'production') {
@@ -40,7 +47,7 @@ export function initMixin (Vue: Class<Component>) {
     } else {
       vm._renderProxy = vm
     }
-    // expose real self
+    // expose real self 没搜到，有用？
     vm._self = vm
     initLifecycle(vm)
     initEvents(vm)
@@ -86,7 +93,10 @@ export function initInternalComponent (vm: Component, options: InternalComponent
 
 export function resolveConstructorOptions (Ctor: Class<Component>) {
   console.log('Ctor', Ctor)
+  console.log('Ctor.options', Ctor.options)
+  console.log(Ctor.super ? 'Ctor has super' : 'Ctor has no super')
   let options = Ctor.options
+  console.log('Before merging super ConstructorOptions', options)
   if (Ctor.super) {
     const superOptions = resolveConstructorOptions(Ctor.super)
     const cachedSuperOptions = Ctor.superOptions
@@ -106,7 +116,7 @@ export function resolveConstructorOptions (Ctor: Class<Component>) {
       }
     }
   }
-  console.log('ConstructorOptions', options)
+  console.log('After merging super ConstructorOptions', options)
   return options
 }
 

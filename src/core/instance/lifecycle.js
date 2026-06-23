@@ -34,6 +34,7 @@ export function initLifecycle (vm: Component) {
 
   // locate first non-abstract parent
   let parent = options.parent
+  console.log('initLifecycle parent', parent)
   if (parent && !options.abstract) {
     while (parent.$options.abstract && parent.$parent) {
       parent = parent.$parent
@@ -48,7 +49,7 @@ export function initLifecycle (vm: Component) {
   vm.$refs = {}
 
   vm._watcher = null
-  vm._inactive = null
+  vm._inactive = null // KeepAlive 组件使用
   vm._directInactive = false
   vm._isMounted = false
   vm._isDestroyed = false
@@ -56,10 +57,13 @@ export function initLifecycle (vm: Component) {
 }
 
 export function lifecycleMixin (Vue: Class<Component>) {
+  // 把 vnode 更新到真实 DOM 上。
   Vue.prototype._update = function (vnode: VNode, hydrating?: boolean) {
     const vm: Component = this
     const prevEl = vm.$el
     const prevVnode = vm._vnode
+    // restoreActiveInstance 是为了标记当前正在更新的组件实例。
+    // 因为 patch 过程中可能创建子组件，Vue 需要知道：当前活跃的父组件是谁。这样子组件才能正确建立父子关系。
     const restoreActiveInstance = setActiveInstance(vm)
     vm._vnode = vnode
     // Vue.prototype.__patch__ is injected in entry points
@@ -77,10 +81,16 @@ export function lifecycleMixin (Vue: Class<Component>) {
       prevEl.__vue__ = null
     }
     if (vm.$el) {
+      // 是在 DOM 元素上挂反向引用。
+      // document.querySelector('#app').__vue__ 就能拿到 Vue 实例。
       vm.$el.__vue__ = vm
     }
     // if parent is an HOC, update its $el as well
     if (vm.$vnode && vm.$parent && vm.$vnode === vm.$parent._vnode) {
+      // 比如 <keep-alive> 就是一个抽象组件，不会创建自己的 dom 和 vnode
+      // 还有 transition 组件也是抽象组件。
+      // KeepAlive._vnode === HomeVNode
+      // KeepAlive.$el = Home.$el
       vm.$parent.$el = vm.$el
     }
     // updated hook is called by the scheduler to ensure that children are
@@ -90,6 +100,8 @@ export function lifecycleMixin (Vue: Class<Component>) {
   Vue.prototype.$forceUpdate = function () {
     const vm: Component = this
     if (vm._watcher) {
+      // 强制触发当前组件重新渲染。
+      // 本质是通知当前组件的渲染 watcher 更新。
       vm._watcher.update()
     }
   }
@@ -99,19 +111,35 @@ export function lifecycleMixin (Vue: Class<Component>) {
     if (vm._isBeingDestroyed) {
       return
     }
+    // 标记正在销毁
     callHook(vm, 'beforeDestroy')
     vm._isBeingDestroyed = true
     // remove self from parent
     const parent = vm.$parent
     if (parent && !parent._isBeingDestroyed && !vm.$options.abstract) {
+      // 从父组件的 $children 中移除当前组件实例。
       remove(parent.$children, vm)
     }
     // teardown watchers
     if (vm._watcher) {
+      // _watcher 是 组件的渲染 watcher，负责组件的渲染更新。
       vm._watcher.teardown()
     }
     let i = vm._watchers.length
     while (i--) {
+      // vm._watchers
+      // │
+      // ├── Render Watcher
+      // │      ↑
+      // │      └── vm._watcher
+      // │
+      // ├── User Watcher
+      // │      watch:{}
+      // │      this.$watch()
+      // │
+      // └── Computed Watcher
+      //        computed:{}
+      // teardown时会有内部保护，防止重复 teardown。
       vm._watchers[i].teardown()
     }
     // remove reference from data ob
@@ -122,6 +150,7 @@ export function lifecycleMixin (Vue: Class<Component>) {
     // call the last hook...
     vm._isDestroyed = true
     // invoke destroy hooks on current rendered tree
+    // 移除dom
     vm.__patch__(vm._vnode, null)
     // fire destroyed hook
     callHook(vm, 'destroyed')
@@ -339,6 +368,7 @@ export function callHook (vm: Component, hook: string) {
   pushTarget()
   const handlers = vm.$options[hook]
   const info = `${hook} hook`
+  console.log('callHook', info, handlers)
   if (handlers) {
     for (let i = 0, j = handlers.length; i < j; i++) {
       invokeWithErrorHandling(handlers[i], vm, null, vm, info)

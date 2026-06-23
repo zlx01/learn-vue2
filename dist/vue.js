@@ -238,6 +238,12 @@
 
   /**
    * Mix properties into target object.
+   * 会遍历：
+   *  自身可枚举属性
+   *  原型链上的可枚举属性
+   * 考虑原型链上的属性，不用 Object.assign() 和 ... ，因为二者只会复制自身可枚举属性
+   * 创建新对象 → 优先 ...
+   * 修改已有对象 → 优先 Object.assign
    */
   function extend (to, _from) {
     for (var key in _from) {
@@ -1021,6 +1027,7 @@
     var dep = new Dep();
 
     var property = Object.getOwnPropertyDescriptor(obj, key);
+    // console.log('property', property)
     if (property && property.configurable === false) {
       return
     }
@@ -1039,6 +1046,7 @@
       get: function reactiveGetter () {
         var value = getter ? getter.call(obj) : val;
         if (Dep.target) {
+          // 依赖收集
           dep.depend();
           if (childOb) {
             childOb.dep.depend();
@@ -1051,6 +1059,9 @@
       },
       set: function reactiveSetter (newVal) {
         var value = getter ? getter.call(obj) : val;
+        // 自我比较是为了处理 NaN 的情况，因为
+        // NaN === NaN // false
+        // NaN !== NaN // true
         /* eslint-disable no-self-compare */
         if (newVal === value || (newVal !== newVal && value !== value)) {
           return
@@ -1067,6 +1078,7 @@
           val = newVal;
         }
         childOb = !shallow && observe(newVal);
+        // 通知依赖更新
         dep.notify();
       }
     });
@@ -2118,6 +2130,10 @@
       if (hasProxy) {
         // determine which proxy handler to use
         var options = vm.$options;
+        console.log('options.render', options.render);
+        // _withStripped 是 vue-loader 在编译模板时添加的一个标志，
+        // 表示这个 render 函数是经过编译的，并且在编译过程中已经去掉了 with 语句。
+        // @vue/compiler-sfc 加上的
         var handlers = options.render && options.render._withStripped
           ? getHandler
           : hasHandler;
@@ -2167,6 +2183,15 @@
 
   /*  */
 
+  /**
+   * 处理后变成类似
+   * {
+   *   name: 'click',
+   *   once: true,
+   *   capture: false,
+   *   passive: false
+   * }
+   */
   var normalizeEvent = cached(function (name) {
     var passive = name.charAt(0) === '&';
     name = passive ? name.slice(1) : name;
@@ -2182,6 +2207,13 @@
     }
   });
 
+  /**
+   * 包装一下是为了后面更新时就能复用同一个函数。
+   * 比如：click -> foo 生成 invoker.fns = foo, DOM绑定：addEventListener('click', invoker)
+   * 当更新时 click -> bar 只需要更新 invoker.fns = bar 就行了
+   * 不需要 removeEventListener('click', invoker) 再 addEventListener('click', invoker)
+   * 这样就避免了 removeEventListener 和 addEventListener 的性能损耗
+   */
   function createFnInvoker (fns, vm) {
     function invoker () {
       var arguments$1 = arguments;
@@ -2209,17 +2241,20 @@
     createOnceHandler,
     vm
   ) {
+    // eslint-disable-next-line no-unused-vars
     var name, def$$1, cur, old, event;
     for (name in on) {
       def$$1 = cur = on[name];
       old = oldOn[name];
       event = normalizeEvent(name);
       if (isUndef(cur)) {
+        // 事件处理器不存在
         warn(
           "Invalid handler for event \"" + (event.name) + "\": got " + String(cur),
           vm
         );
       } else if (isUndef(old)) {
+        // 新增事件
         if (isUndef(cur.fns)) {
           cur = on[name] = createFnInvoker(cur, vm);
         }
@@ -2228,11 +2263,13 @@
         }
         add(event.name, cur, event.capture, event.passive, event.params);
       } else if (cur !== old) {
+        // 事件变了，可以看到不需要 remove 再 add 了，直接更新 invoker.fns 就行了
         old.fns = cur;
         on[name] = old;
       }
     }
     for (name in oldOn) {
+      // 如果事件被删除了，就 remove 掉
       if (isUndef(on[name])) {
         event = normalizeEvent(name);
         remove$$1(event.name, oldOn[name], event.capture);
@@ -2370,6 +2407,7 @@
   // e.g. <template>, <slot>, v-for, or when the children is provided by user
   // with hand-written render functions / JSX. In such cases a full normalization
   // is needed to cater to all possible types of children values.
+  // 扁平化数组、字符串转 Text VNode、去掉无效节点
   function normalizeChildren (children) {
     return isPrimitive(children)
       ? [createTextVNode(children)]
@@ -2484,8 +2522,10 @@
           source = source.$parent;
         }
         if (!source) {
+          // 跟props类似，可以设置默认值
           if ('default' in inject[key]) {
             var provideDefault = inject[key].default;
+            // 默认值可以是一个函数，也可以是一个普通值
             result[key] = typeof provideDefault === 'function'
               ? provideDefault.call(vm)
               : provideDefault;
@@ -3509,9 +3549,11 @@
     // so that we get proper render context inside it.
     // args order: tag, data, children, normalizationType, alwaysNormalize
     // internal version is used by render functions compiled from templates
+    // 模板编译生成的 render 函数，格式完全正确，再normalize一次纯属浪费性能
     vm._c = function (a, b, c, d) { return createElement(vm, a, b, c, d, false); };
     // normalization is always applied for the public version, used in
     // user-written render functions.
+    // 用户手写 render 函数
     vm.$createElement = function (a, b, c, d) { return createElement(vm, a, b, c, d, true); };
 
     // $attrs & $listeners are exposed for easier HOC creation.
@@ -3529,6 +3571,7 @@
     }
   }
 
+  // 当前正在执行 render 的组件实例是谁
   var currentRenderingInstance = null;
 
   function renderMixin (Vue) {
@@ -3539,6 +3582,7 @@
       return nextTick(fn, this)
     };
 
+    // 调用组件的 render 函数，返回当前组件的虚拟 DOM：VNode
     Vue.prototype._render = function () {
       var vm = this;
       var ref = vm.$options;
@@ -3546,6 +3590,7 @@
       var _parentVnode = ref._parentVnode;
 
       if (_parentVnode) {
+        // 如果当前组件有父组件传下来的作用域插槽，就把它规范化成统一格式。
         vm.$scopedSlots = normalizeScopedSlots(
           _parentVnode.data.scopedSlots,
           vm.$slots,
@@ -3555,6 +3600,9 @@
 
       // set parent vnode. this allows render functions to have access
       // to the data on the placeholder node.
+      // vm.$vnode 不是当前组件自己的根 VNode，而是：
+      // 父组件中代表当前组件的那个占位 VNode
+      // 可以拿到父组件给它的这个组件占位节点，包括 class、style、slot 等信息。
       vm.$vnode = _parentVnode;
       // render self
       var vnode;
@@ -3563,6 +3611,11 @@
         // separately from one another. Nested component's render fns are called
         // when parent component is patched.
         currentRenderingInstance = vm;
+        // 等价于 render.call(vm._renderProxy, vm.$createElement)
+        // render(h) {
+        //   return h('div', 'hello')
+        // }
+        // h === vm.$createElement
         vnode = render.call(vm._renderProxy, vm.$createElement);
       } catch (e) {
         handleError(e, vm, "render");
@@ -3574,6 +3627,7 @@
             vnode = vm.$options.renderError.call(vm._renderProxy, vm.$createElement, e);
           } catch (e) {
             handleError(e, vm, "renderError");
+            // render 报错时尽量保留上一次正常渲染的画面，而不是直接空白。
             vnode = vm._vnode;
           }
         } else {
@@ -3589,6 +3643,7 @@
       // return empty vnode in case the render function errored out
       if (!(vnode instanceof VNode)) {
         if (Array.isArray(vnode)) {
+          // Vue2 要求组件只能有一个根节点。
           warn(
             'Multiple root nodes returned from render function. Render function ' +
             'should return a single root node.',
@@ -3598,6 +3653,7 @@
         vnode = createEmptyVNode();
       }
       // set parent
+      // 建立父子 VNode 关系
       vnode.parent = _parentVnode;
       return vnode
     };
@@ -3771,14 +3827,17 @@
 
   function initEvents (vm) {
     vm._events = Object.create(null);
-    vm._hasHookEvent = false;
+    vm._hasHookEvent = false; // 这种就是hookEvent <Child @hook:mounted="fn"/>
     // init parent attached events
     var listeners = vm.$options._parentListeners;
+    console.log('listeners', listeners);
     if (listeners) {
       updateComponentListeners(vm, listeners);
     }
   }
 
+  // 当前上下文对象挂到模块变量上，避免层层传参。
+  //
   var target;
 
   function add (event, fn) {
@@ -3804,8 +3863,14 @@
     listeners,
     oldListeners
   ) {
+    // 这样就能在 add、remove、createOnceHandler 中访问到 vm 了
     target = vm;
+    // 传入add、remove、createOnceHandler 这三个函数，实现了事件diff逻辑和事件注册实现的分离
+    // 如果不用target，就需要把 vm 作为参数传递给 add、remove、createOnceHandler，
+    // 这样会额外创造一个函数作用域，每次更新都会创建，性能上会有损耗。比如：(event, fn) => add(vm, event, fn)
+    // 这里优化后都是固定的 add、remove、createOnceHandler 函数，不会有性能损耗。
     updateListeners(listeners, oldListeners || {}, add, remove$1, createOnceHandler, vm);
+    // 同步的流程，不会有并发问题
     target = undefined;
   }
 
@@ -3921,6 +3986,7 @@
 
     // locate first non-abstract parent
     var parent = options.parent;
+    console.log('initLifecycle parent', parent);
     if (parent && !options.abstract) {
       while (parent.$options.abstract && parent.$parent) {
         parent = parent.$parent;
@@ -3935,7 +4001,7 @@
     vm.$refs = {};
 
     vm._watcher = null;
-    vm._inactive = null;
+    vm._inactive = null; // KeepAlive 组件使用
     vm._directInactive = false;
     vm._isMounted = false;
     vm._isDestroyed = false;
@@ -3943,10 +4009,13 @@
   }
 
   function lifecycleMixin (Vue) {
+    // 把 vnode 更新到真实 DOM 上。
     Vue.prototype._update = function (vnode, hydrating) {
       var vm = this;
       var prevEl = vm.$el;
       var prevVnode = vm._vnode;
+      // restoreActiveInstance 是为了标记当前正在更新的组件实例。
+      // 因为 patch 过程中可能创建子组件，Vue 需要知道：当前活跃的父组件是谁。这样子组件才能正确建立父子关系。
       var restoreActiveInstance = setActiveInstance(vm);
       vm._vnode = vnode;
       // Vue.prototype.__patch__ is injected in entry points
@@ -3964,10 +4033,16 @@
         prevEl.__vue__ = null;
       }
       if (vm.$el) {
+        // 是在 DOM 元素上挂反向引用。
+        // document.querySelector('#app').__vue__ 就能拿到 Vue 实例。
         vm.$el.__vue__ = vm;
       }
       // if parent is an HOC, update its $el as well
       if (vm.$vnode && vm.$parent && vm.$vnode === vm.$parent._vnode) {
+        // 比如 <keep-alive> 就是一个抽象组件，不会创建自己的 dom 和 vnode
+        // 还有 transition 组件也是抽象组件。
+        // KeepAlive._vnode === HomeVNode
+        // KeepAlive.$el = Home.$el
         vm.$parent.$el = vm.$el;
       }
       // updated hook is called by the scheduler to ensure that children are
@@ -3977,6 +4052,8 @@
     Vue.prototype.$forceUpdate = function () {
       var vm = this;
       if (vm._watcher) {
+        // 强制触发当前组件重新渲染。
+        // 本质是通知当前组件的渲染 watcher 更新。
         vm._watcher.update();
       }
     };
@@ -3986,19 +4063,35 @@
       if (vm._isBeingDestroyed) {
         return
       }
+      // 标记正在销毁
       callHook(vm, 'beforeDestroy');
       vm._isBeingDestroyed = true;
       // remove self from parent
       var parent = vm.$parent;
       if (parent && !parent._isBeingDestroyed && !vm.$options.abstract) {
+        // 从父组件的 $children 中移除当前组件实例。
         remove(parent.$children, vm);
       }
       // teardown watchers
       if (vm._watcher) {
+        // _watcher 是 组件的渲染 watcher，负责组件的渲染更新。
         vm._watcher.teardown();
       }
       var i = vm._watchers.length;
       while (i--) {
+        // vm._watchers
+        // │
+        // ├── Render Watcher
+        // │      ↑
+        // │      └── vm._watcher
+        // │
+        // ├── User Watcher
+        // │      watch:{}
+        // │      this.$watch()
+        // │
+        // └── Computed Watcher
+        //        computed:{}
+        // teardown时会有内部保护，防止重复 teardown。
         vm._watchers[i].teardown();
       }
       // remove reference from data ob
@@ -4009,6 +4102,7 @@
       // call the last hook...
       vm._isDestroyed = true;
       // invoke destroy hooks on current rendered tree
+      // 移除dom
       vm.__patch__(vm._vnode, null);
       // fire destroyed hook
       callHook(vm, 'destroyed');
@@ -4226,6 +4320,7 @@
     pushTarget();
     var handlers = vm.$options[hook];
     var info = hook + " hook";
+    console.log('callHook', info, handlers);
     if (handlers) {
       for (var i = 0, j = handlers.length; i < j; i++) {
         invokeWithErrorHandling(handlers[i], vm, null, vm, info);
@@ -4436,6 +4531,7 @@
   ) {
     this.vm = vm;
     if (isRenderWatcher) {
+      // 单独拿出渲染watcher，放在vm._watcher上，是因为经常被访问
       vm._watcher = this;
     }
     vm._watchers.push(this);
@@ -4914,11 +5010,10 @@
   }
 
   function stateMixin (Vue) {
-    // flow somehow has problems with directly declared definition object
-    // when using Object.defineProperty, so we have to procedurally build up
-    // the object here.
+    // 把 vm.$data 映射到内部属性 _data 上
     var dataDef = {};
     dataDef.get = function () { return this._data };
+    // 把 vm.$props 映射到内部属性 _props 上
     var propsDef = {};
     propsDef.get = function () { return this._props };
     {
@@ -4933,9 +5028,13 @@
         warn("$props is readonly.", this);
       };
     }
+    // 实现 this.$data 和 this.$props
     Object.defineProperty(Vue.prototype, '$data', dataDef);
     Object.defineProperty(Vue.prototype, '$props', propsDef);
 
+    // 实现 this.$set 和 this.$delete
+    // Vue.set 和 Vue.delete 是全局 API，Vue.prototype.$set 和 Vue.prototype.$delete 是实例方法，
+    // 二者指向同一个函数
     Vue.prototype.$set = set;
     Vue.prototype.$delete = del;
 
@@ -4945,15 +5044,27 @@
       options
     ) {
       var vm = this;
+      /**
+       * this.$watch('name', {
+       *   handler(newVal) {},
+       *   immediate: true,
+       *   deep: true
+       * })
+       */
       if (isPlainObject(cb)) {
+        // 这个方法做了归一化，内部又调用了 vm.$watch，最终会走到下面的逻辑，创建一个 Watcher 实例。
         return createWatcher(vm, expOrFn, cb, options)
       }
       options = options || {};
+      // 表示这是用户 watcher，不是 Vue 内部渲染 watcher，
+      // 这样如果回调报错，Vue 会走用户错误处理逻辑，例如 errorCaptured / config.errorHandler。
       options.user = true;
       var watcher = new Watcher(vm, expOrFn, cb, options);
       if (options.immediate) {
         var info = "callback for immediate watcher \"" + (watcher.expression) + "\"";
+        // 临时关闭依赖收集，避免 immediate 回调里访问别的数据时，被错误收集到当前 watcher 上。
         pushTarget();
+        // 立即执行回调，传入当前值
         invokeWithErrorHandling(cb, vm, [watcher.value], vm, info);
         popTarget();
       }
@@ -4965,6 +5076,10 @@
 
   /*  */
 
+  /**
+   * _uid 的作用是：给每一个 Vue 实例分配一个唯一的内部编号。它不是用户 API，主要给 Vue 内部做实例识别、调试标记、生成唯一 key 用。
+   * [create-functional-component.js (line 25)]里用 hasOwn(parent, '_uid') 判断传进来的 parent 是否是真实组件实例，还是已经包装过的函数式组件 context。
+   */
   var uid$2 = 0;
 
   function initMixin (Vue) {
@@ -4982,7 +5097,8 @@
         // internal component options needs special treatment.
         initInternalComponent(vm, options);
       } else {
-        console.log('Customer Component');
+        // new Vue() 的时候会走这里
+        console.log('User Component');
         console.log('vm', vm);
         console.log('options', options);
         vm.$options = mergeOptions(
@@ -4990,12 +5106,14 @@
           options || {},
           vm
         );
+        console.log('After merging ConstructorOptions and Options');
+        console.log('vm.$options', vm.$options);
       }
       /* istanbul ignore else */
       {
         initProxy(vm);
       }
-      // expose real self
+      // expose real self 没搜到，有用？
       vm._self = vm;
       initLifecycle(vm);
       initEvents(vm);
@@ -5041,7 +5159,10 @@
 
   function resolveConstructorOptions (Ctor) {
     console.log('Ctor', Ctor);
+    console.log('Ctor.options', Ctor.options);
+    console.log(Ctor.super ? 'Ctor has super' : 'Ctor has no super');
     var options = Ctor.options;
+    console.log('Before merging super ConstructorOptions', options);
     if (Ctor.super) {
       var superOptions = resolveConstructorOptions(Ctor.super);
       var cachedSuperOptions = Ctor.superOptions;
@@ -5061,7 +5182,7 @@
         }
       }
     }
-    console.log('ConstructorOptions', options);
+    console.log('After merging super ConstructorOptions', options);
     return options
   }
 
@@ -5092,17 +5213,22 @@
 
   function initUse (Vue) {
     Vue.use = function (plugin) {
+      // 防止重复安装
       var installedPlugins = (this._installedPlugins || (this._installedPlugins = []));
       if (installedPlugins.indexOf(plugin) > -1) {
-        return this
+        return this // return Vue to allow chaining
       }
 
       // additional parameters
       var args = toArray(arguments, 1);
-      args.unshift(this);
+      args.unshift(this); // 将 Vue 作为第一个参数传入插件，方便插件扩展 Vue
       if (typeof plugin.install === 'function') {
+        // 插件是一个带有 install 方法的对象
+        // 等价于 plugin.install(Vue, ...args)
+        // install 中的 this 是 plugin 对象本身
         plugin.install.apply(plugin, args);
       } else if (typeof plugin === 'function') {
+        // 插件是一个函数
         plugin.apply(null, args);
       }
       installedPlugins.push(plugin);
@@ -5115,7 +5241,7 @@
   function initMixin$1 (Vue) {
     Vue.mixin = function (mixin) {
       this.options = mergeOptions(this.options, mixin);
-      return this
+      return this  // 用在resolveConstructorOptions里 Ctor.options
     };
   }
 
@@ -5135,7 +5261,9 @@
      */
     Vue.extend = function (extendOptions) {
       extendOptions = extendOptions || {};
-      var Super = this;
+      var Super = this; // this 不一定是 Vue，可能多层继承
+      // const A = Vue.extend({...})
+      // const B = A.extend({...})
       var SuperId = Super.cid;
       var cachedCtors = extendOptions._Ctor || (extendOptions._Ctor = {});
       if (cachedCtors[SuperId]) {
@@ -5143,14 +5271,14 @@
       }
 
       var name = extendOptions.name || Super.options.name;
-      if (name) {
-        validateComponentName(name);
-      }
 
+      // 经典原型继承
       var Sub = function VueComponent (options) {
         this._init(options);
       };
+      // 比如 Vue.options.components 会合并到子组件上
       Sub.prototype = Object.create(Super.prototype);
+      // 修复 constructor 指向（否则 Sub.prototype.constructor 会变成 Super）
       Sub.prototype.constructor = Sub;
       Sub.cid = cid++;
       Sub.options = mergeOptions(
@@ -5162,6 +5290,7 @@
       // For props and computed properties, we define the proxy getters on
       // the Vue instances at extension time, on the extended prototype. This
       // avoids Object.defineProperty calls for each instance created.
+      // 提前定义在原型上，避免每创建一个实例就重复 Object.defineProperty。
       if (Sub.options.props) {
         initProps$1(Sub);
       }
@@ -5169,6 +5298,7 @@
         initComputed$1(Sub);
       }
 
+      // 复制静态方法到子类上
       // allow further extension/mixin/plugin usage
       Sub.extend = Super.extend;
       Sub.mixin = Super.mixin;
@@ -5176,17 +5306,20 @@
 
       // create asset registers, so extended classes
       // can have their private assets too.
+      // 这样子类构造函数也可以注册自己的局部资产
       ASSET_TYPES.forEach(function (type) {
         Sub[type] = Super[type];
       });
       // enable recursive self-lookup
       if (name) {
+        // 组件内部用自己的名字引用自己
         Sub.options.components[name] = Sub;
       }
 
       // keep a reference to the super options at extension time.
       // later at instantiation we can check if Super's options have
-      // been updated.
+      // been updated
+      // 为了后面实例化时检查父构造器配置有没有变。
       Sub.superOptions = Super.options;
       Sub.extendOptions = extendOptions;
       Sub.sealedOptions = extend({}, Sub.options);
@@ -5225,14 +5358,14 @@
         if (!definition) {
           return this.options[type + 's'][id]
         } else {
-          /* istanbul ignore if */
-          if (type === 'component') {
-            validateComponentName(id);
-          }
           if (type === 'component' && isPlainObject(definition)) {
             definition.name = definition.name || id;
+            // 全局注册组件本质是通过 Vue.extend 创建一个子类，
+            // 然后将子类存储在 Vue.options.components 中
+            // 用 _base 是为了在 definition 中用this访问的是Vue构造函数，而不是子类
             definition = this.options._base.extend(definition);
           }
+          // 简写语法糖
           if (type === 'directive' && typeof definition === 'function') {
             definition = { bind: definition, update: definition };
           }
@@ -5451,6 +5584,7 @@
     // components with in Weex's multi-instance scenarios.
     Vue.options._base = Vue;
 
+    // 这里添加了 keep-alive 组件
     extend(Vue.options.components, builtInComponents);
 
     initUse(Vue);

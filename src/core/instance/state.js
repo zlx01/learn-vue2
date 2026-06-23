@@ -321,11 +321,10 @@ function createWatcher (
 }
 
 export function stateMixin (Vue: Class<Component>) {
-  // flow somehow has problems with directly declared definition object
-  // when using Object.defineProperty, so we have to procedurally build up
-  // the object here.
+  // 把 vm.$data 映射到内部属性 _data 上
   const dataDef = {}
   dataDef.get = function () { return this._data }
+  // 把 vm.$props 映射到内部属性 _props 上
   const propsDef = {}
   propsDef.get = function () { return this._props }
   if (process.env.NODE_ENV !== 'production') {
@@ -340,9 +339,13 @@ export function stateMixin (Vue: Class<Component>) {
       warn(`$props is readonly.`, this)
     }
   }
+  // 实现 this.$data 和 this.$props
   Object.defineProperty(Vue.prototype, '$data', dataDef)
   Object.defineProperty(Vue.prototype, '$props', propsDef)
 
+  // 实现 this.$set 和 this.$delete
+  // Vue.set 和 Vue.delete 是全局 API，Vue.prototype.$set 和 Vue.prototype.$delete 是实例方法，
+  // 二者指向同一个函数
   Vue.prototype.$set = set
   Vue.prototype.$delete = del
 
@@ -352,15 +355,27 @@ export function stateMixin (Vue: Class<Component>) {
     options?: Object
   ): Function {
     const vm: Component = this
+    /**
+     * this.$watch('name', {
+     *   handler(newVal) {},
+     *   immediate: true,
+     *   deep: true
+     * })
+     */
     if (isPlainObject(cb)) {
+      // 这个方法做了归一化，内部又调用了 vm.$watch，最终会走到下面的逻辑，创建一个 Watcher 实例。
       return createWatcher(vm, expOrFn, cb, options)
     }
     options = options || {}
+    // 表示这是用户 watcher，不是 Vue 内部渲染 watcher，
+    // 这样如果回调报错，Vue 会走用户错误处理逻辑，例如 errorCaptured / config.errorHandler。
     options.user = true
     const watcher = new Watcher(vm, expOrFn, cb, options)
     if (options.immediate) {
       const info = `callback for immediate watcher "${watcher.expression}"`
+      // 临时关闭依赖收集，避免 immediate 回调里访问别的数据时，被错误收集到当前 watcher 上。
       pushTarget()
+      // 立即执行回调，传入当前值
       invokeWithErrorHandling(cb, vm, [watcher.value], vm, info)
       popTarget()
     }

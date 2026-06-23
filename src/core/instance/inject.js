@@ -1,6 +1,6 @@
 /* @flow */
 
-import { hasOwn } from 'shared/util'
+import { hasOwn } from '../../shared/util'
 import { warn, hasSymbol } from '../util/index'
 import { defineReactive, toggleObserving } from '../observer/index'
 
@@ -58,8 +58,10 @@ export function resolveInject (inject: any, vm: Component): ?Object {
         source = source.$parent
       }
       if (!source) {
+        // 跟props类似，可以设置默认值
         if ('default' in inject[key]) {
           const provideDefault = inject[key].default
+          // 默认值可以是一个函数，也可以是一个普通值
           result[key] = typeof provideDefault === 'function'
             ? provideDefault.call(vm)
             : provideDefault

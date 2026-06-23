@@ -11,14 +11,17 @@ import { updateListeners } from '../vdom/helpers/index'
 
 export function initEvents (vm: Component) {
   vm._events = Object.create(null)
-  vm._hasHookEvent = false
+  vm._hasHookEvent = false // 这种就是hookEvent <Child @hook:mounted="fn"/>
   // init parent attached events
   const listeners = vm.$options._parentListeners
+  console.log('listeners', listeners)
   if (listeners) {
     updateComponentListeners(vm, listeners)
   }
 }
 
+// 当前上下文对象挂到模块变量上，避免层层传参。
+//
 let target: any
 
 function add (event, fn) {
@@ -44,8 +47,14 @@ export function updateComponentListeners (
   listeners: Object,
   oldListeners: ?Object
 ) {
+  // 这样就能在 add、remove、createOnceHandler 中访问到 vm 了
   target = vm
+  // 传入add、remove、createOnceHandler 这三个函数，实现了事件diff逻辑和事件注册实现的分离
+  // 如果不用target，就需要把 vm 作为参数传递给 add、remove、createOnceHandler，
+  // 这样会额外创造一个函数作用域，每次更新都会创建，性能上会有损耗。比如：(event, fn) => add(vm, event, fn)
+  // 这里优化后都是固定的 add、remove、createOnceHandler 函数，不会有性能损耗。
   updateListeners(listeners, oldListeners || {}, add, remove, createOnceHandler, vm)
+  // 同步的流程，不会有并发问题
   target = undefined
 }
 

@@ -79,6 +79,10 @@ if (process.env.NODE_ENV !== 'production') {
     if (hasProxy) {
       // determine which proxy handler to use
       const options = vm.$options
+      console.log('options.render', options.render)
+      // _withStripped 是 vue-loader 在编译模板时添加的一个标志，
+      // 表示这个 render 函数是经过编译的，并且在编译过程中已经去掉了 with 语句。
+      // @vue/compiler-sfc 加上的
       const handlers = options.render && options.render._withStripped
         ? getHandler
         : hasHandler

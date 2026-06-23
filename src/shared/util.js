@@ -227,6 +227,12 @@ export function toArray (list: any, start?: number): Array<any> {
 
 /**
  * Mix properties into target object.
+ * 会遍历：
+ *  自身可枚举属性
+ *  原型链上的可枚举属性
+ * 考虑原型链上的属性，不用 Object.assign() 和 ... ，因为二者只会复制自身可枚举属性
+ * 创建新对象 → 优先 ...
+ * 修改已有对象 → 优先 Object.assign
  */
 export function extend (to: Object, _from: ?Object): Object {
   for (const key in _from) {

@@ -1,6 +1,8 @@
 // Full spec-compliant TodoMVC with localStorage persistence
 // and hash-based routing in ~150 lines.
 
+var Vue = window.Vue
+
 // localStorage persistence
 var STORAGE_KEY = 'todos-vuejs-2.0'
 var todoStorage = {
@@ -33,6 +35,12 @@ var filters = {
     })
   }
 }
+
+Vue.mixin({
+  created() {
+    console.log('global created')
+  }
+})
 
 // app Vue instance
 var app = new Vue({
@@ -136,7 +144,15 @@ var app = new Vue({
         el.focus()
       }
     }
-  }
+  },
+
+  created()  {
+    console.log('todo app created')
+  },
+
+  mounted() {
+    console.log('todo app mounted')
+  },
 })
 
 // handle routing

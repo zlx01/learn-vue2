@@ -52,6 +52,7 @@ export default class Watcher {
   ) {
     this.vm = vm
     if (isRenderWatcher) {
+      // 单独拿出渲染watcher，放在vm._watcher上，是因为经常被访问
       vm._watcher = this
     }
     vm._watchers.push(this)

@@ -142,6 +142,7 @@ export function defineReactive (
   const dep = new Dep()
 
   const property = Object.getOwnPropertyDescriptor(obj, key)
+  // console.log('property', property)
   if (property && property.configurable === false) {
     return
   }
@@ -160,6 +161,7 @@ export function defineReactive (
     get: function reactiveGetter () {
       const value = getter ? getter.call(obj) : val
       if (Dep.target) {
+        // 依赖收集
         dep.depend()
         if (childOb) {
           childOb.dep.depend()
@@ -172,6 +174,9 @@ export function defineReactive (
     },
     set: function reactiveSetter (newVal) {
       const value = getter ? getter.call(obj) : val
+      // 自我比较是为了处理 NaN 的情况，因为
+      // NaN === NaN // false
+      // NaN !== NaN // true
       /* eslint-disable no-self-compare */
       if (newVal === value || (newVal !== newVal && value !== value)) {
         return
@@ -188,6 +193,7 @@ export function defineReactive (
         val = newVal
       }
       childOb = !shallow && observe(newVal)
+      // 通知依赖更新
       dep.notify()
     }
   })
