@@ -45,6 +45,7 @@ export class Observer {
     this.vmCount = 0
     def(value, '__ob__', this)
     if (Array.isArray(value)) {
+      // 数组的响应式需要特殊处理
       if (hasProto) {
         protoAugment(value, arrayMethods)
       } else {
@@ -109,12 +110,15 @@ function copyAugment (target: Object, src: Object, keys: Array<string>) {
  */
 export function observe (value: any, asRootData: ?boolean): Observer | void {
   if (!isObject(value) || value instanceof VNode) {
+    // 基本类型、null、VNode 都不会变成响应式。
     return
   }
   let ob: Observer | void
+  // 如果 value 已经被观察过了，就直接返回它的 Observer 实例
   if (hasOwn(value, '__ob__') && value.__ob__ instanceof Observer) {
     ob = value.__ob__
   } else if (
+    // 只观测数组和普通对象；服务端渲染时不做；被冻结/不可扩展对象不做；Vue 实例本身不做。
     shouldObserve &&
     !isServerRendering() &&
     (Array.isArray(value) || isPlainObject(value)) &&
@@ -124,6 +128,7 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
     ob = new Observer(value)
   }
   if (asRootData && ob) {
+    // asRootData表示这个对象是某个组件实例的根 $data。后面的 set / del 会用它来阻止运行时往根 $data 上新增/删除属性。
     ob.vmCount++
   }
   return ob
@@ -147,6 +152,7 @@ export function defineReactive (
     return
   }
 
+  // 这是为了兼容用户本来就定义过访问器属性的情况。
   // cater for pre-defined getter/setters
   const getter = property && property.get
   const setter = property && property.set
@@ -160,6 +166,8 @@ export function defineReactive (
     configurable: true,
     get: function reactiveGetter () {
       const value = getter ? getter.call(obj) : val
+      // 当某个 watcher 正在求值时，Dep.target 会指向当前 watcher。
+      // 此时读取属性，就会调用 dep.depend()，把当前 watcher 收集进这个属性的依赖列表。
       if (Dep.target) {
         // 依赖收集
         dep.depend()
@@ -205,11 +213,6 @@ export function defineReactive (
  * already exist.
  */
 export function set (target: Array<any> | Object, key: any, val: any): any {
-  if (process.env.NODE_ENV !== 'production' &&
-    (isUndef(target) || isPrimitive(target))
-  ) {
-    warn(`Cannot set reactive property on undefined, null, or primitive value: ${(target: any)}`)
-  }
   if (Array.isArray(target) && isValidArrayIndex(key)) {
     target.length = Math.max(target.length, key)
     target.splice(key, 1, val)

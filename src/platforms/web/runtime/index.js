@@ -1,10 +1,10 @@
 /* @flow */
 
-import Vue from 'core/index'
-import config from 'core/config'
-import { extend, noop } from 'shared/util'
-import { mountComponent } from 'core/instance/lifecycle'
-import { devtools, inBrowser } from 'core/util/index'
+import Vue from '../../../core/index'
+import config from '../../../core/config'
+import { extend, noop } from '../../../shared/util'
+import { mountComponent } from '../../../core/instance/lifecycle'
+import { devtools, inBrowser } from '../../../core/util/index'
 
 import {
   query,
@@ -13,7 +13,7 @@ import {
   isReservedAttr,
   getTagNamespace,
   isUnknownElement
-} from 'web/util/index'
+} from '../util/index'
 
 import { patch } from './patch'
 import platformDirectives from './directives/index'

@@ -30,10 +30,13 @@ export default class Dep {
 
   depend () {
     if (Dep.target) {
+      // Waterer记住了这个Dep，addDep内部也会调用 dep.addSub(this)
+      // 让Dep记住这个Waterer
       Dep.target.addDep(this)
     }
   }
 
+  // 当响应式属性被修改时，setter 里会调用
   notify () {
     // stabilize the subscriber list first
     const subs = this.subs.slice()
@@ -52,7 +55,10 @@ export default class Dep {
 // The current target watcher being evaluated.
 // This is globally unique because only one watcher
 // can be evaluated at a time.
+// Vue 全局同时只能有一个“当前正在收集依赖的 watcher”。这个 watcher 就存在 Dep.target 上。
+// 为什么可以全局唯一？因为 JS 是单线程执行的，同一时刻只会有一个 watcher 正在执行 getter/render。
 Dep.target = null
+// 但 watcher 可能嵌套。比如渲染过程中访问 computed，computed 内部又会触发自己的 watcher 求值。所以 Vue 用了一个栈：
 const targetStack = []
 
 export function pushTarget (target: ?Watcher) {

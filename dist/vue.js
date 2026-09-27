@@ -359,127 +359,6 @@
     }
   }
 
-  var SSR_ATTR = 'data-server-rendered';
-
-  var ASSET_TYPES = [
-    'component',
-    'directive',
-    'filter'
-  ];
-
-  var LIFECYCLE_HOOKS = [
-    'beforeCreate',
-    'created',
-    'beforeMount',
-    'mounted',
-    'beforeUpdate',
-    'updated',
-    'beforeDestroy',
-    'destroyed',
-    'activated',
-    'deactivated',
-    'errorCaptured',
-    'serverPrefetch'
-  ];
-
-  /*  */
-
-
-
-  var config = ({
-    /**
-     * Option merge strategies (used in core/util/options)
-     */
-    // $flow-disable-line
-    optionMergeStrategies: Object.create(null),
-
-    /**
-     * Whether to suppress warnings.
-     */
-    silent: false,
-
-    /**
-     * Show production mode tip message on boot?
-     */
-    productionTip: "development" !== 'production',
-
-    /**
-     * Whether to enable devtools
-     */
-    devtools: "development" !== 'production',
-
-    /**
-     * Whether to record perf
-     */
-    performance: false,
-
-    /**
-     * Error handler for watcher errors
-     */
-    errorHandler: null,
-
-    /**
-     * Warn handler for watcher warns
-     */
-    warnHandler: null,
-
-    /**
-     * Ignore certain custom elements
-     */
-    ignoredElements: [],
-
-    /**
-     * Custom user key aliases for v-on
-     */
-    // $flow-disable-line
-    keyCodes: Object.create(null),
-
-    /**
-     * Check if a tag is reserved so that it cannot be registered as a
-     * component. This is platform-dependent and may be overwritten.
-     */
-    isReservedTag: no,
-
-    /**
-     * Check if an attribute is reserved so that it cannot be used as a component
-     * prop. This is platform-dependent and may be overwritten.
-     */
-    isReservedAttr: no,
-
-    /**
-     * Check if a tag is an unknown element.
-     * Platform-dependent.
-     */
-    isUnknownElement: no,
-
-    /**
-     * Get the namespace of an element
-     */
-    getTagNamespace: noop,
-
-    /**
-     * Parse the real tag name for the specific platform.
-     */
-    parsePlatformTagName: identity,
-
-    /**
-     * Check if an attribute must be bound using property, e.g. value
-     * Platform-dependent.
-     */
-    mustUseProp: no,
-
-    /**
-     * Perform updates asynchronously. Intended to be used by Vue Test Utils
-     * This will significantly reduce performance if set to false.
-     */
-    async: true,
-
-    /**
-     * Exposed for legacy reasons
-     */
-    _lifecycleHooks: LIFECYCLE_HOOKS
-  });
-
   /*  */
 
   /**
@@ -617,6 +496,127 @@
     }());
   }
 
+  var SSR_ATTR = 'data-server-rendered';
+
+  var ASSET_TYPES = [
+    'component',
+    'directive',
+    'filter'
+  ];
+
+  var LIFECYCLE_HOOKS = [
+    'beforeCreate',
+    'created',
+    'beforeMount',
+    'mounted',
+    'beforeUpdate',
+    'updated',
+    'beforeDestroy',
+    'destroyed',
+    'activated',
+    'deactivated',
+    'errorCaptured',
+    'serverPrefetch'
+  ];
+
+  /*  */
+
+
+
+  var config = ({
+    /**
+     * Option merge strategies (used in core/util/options)
+     */
+    // $flow-disable-line
+    optionMergeStrategies: Object.create(null),
+
+    /**
+     * Whether to suppress warnings.
+     */
+    silent: false,
+
+    /**
+     * Show production mode tip message on boot?
+     */
+    productionTip: "development" !== 'production',
+
+    /**
+     * Whether to enable devtools
+     */
+    devtools: "development" !== 'production',
+
+    /**
+     * Whether to record perf
+     */
+    performance: false,
+
+    /**
+     * Error handler for watcher errors
+     */
+    errorHandler: null,
+
+    /**
+     * Warn handler for watcher warns
+     */
+    warnHandler: null,
+
+    /**
+     * Ignore certain custom elements
+     */
+    ignoredElements: [],
+
+    /**
+     * Custom user key aliases for v-on
+     */
+    // $flow-disable-line
+    keyCodes: Object.create(null),
+
+    /**
+     * Check if a tag is reserved so that it cannot be registered as a
+     * component. This is platform-dependent and may be overwritten.
+     */
+    isReservedTag: no,
+
+    /**
+     * Check if an attribute is reserved so that it cannot be used as a component
+     * prop. This is platform-dependent and may be overwritten.
+     */
+    isReservedAttr: no,
+
+    /**
+     * Check if a tag is an unknown element.
+     * Platform-dependent.
+     */
+    isUnknownElement: no,
+
+    /**
+     * Get the namespace of an element
+     */
+    getTagNamespace: noop,
+
+    /**
+     * Parse the real tag name for the specific platform.
+     */
+    parsePlatformTagName: identity,
+
+    /**
+     * Check if an attribute must be bound using property, e.g. value
+     * Platform-dependent.
+     */
+    mustUseProp: no,
+
+    /**
+     * Perform updates asynchronously. Intended to be used by Vue Test Utils
+     * This will significantly reduce performance if set to false.
+     */
+    async: true,
+
+    /**
+     * Exposed for legacy reasons
+     */
+    _lifecycleHooks: LIFECYCLE_HOOKS
+  });
+
   /*  */
 
   var warn = noop;
@@ -734,10 +734,13 @@
 
   Dep.prototype.depend = function depend () {
     if (Dep.target) {
+      // Waterer记住了这个Dep，addDep内部也会调用 dep.addSub(this)
+      // 让Dep记住这个Waterer
       Dep.target.addDep(this);
     }
   };
 
+  // 当响应式属性被修改时，setter 里会调用
   Dep.prototype.notify = function notify () {
     // stabilize the subscriber list first
     var subs = this.subs.slice();
@@ -755,7 +758,10 @@
   // The current target watcher being evaluated.
   // This is globally unique because only one watcher
   // can be evaluated at a time.
+  // Vue 全局同时只能有一个“当前正在收集依赖的 watcher”。这个 watcher 就存在 Dep.target 上。
+  // 为什么可以全局唯一？因为 JS 是单线程执行的，同一时刻只会有一个 watcher 正在执行 getter/render。
   Dep.target = null;
+  // 但 watcher 可能嵌套。比如渲染过程中访问 computed，computed 内部又会触发自己的 watcher 求值。所以 Vue 用了一个栈：
   var targetStack = [];
 
   function pushTarget (target) {
@@ -931,6 +937,7 @@
     this.vmCount = 0;
     def(value, '__ob__', this);
     if (Array.isArray(value)) {
+      // 数组的响应式需要特殊处理
       if (hasProto) {
         protoAugment(value, arrayMethods);
       } else {
@@ -994,12 +1001,15 @@
    */
   function observe (value, asRootData) {
     if (!isObject(value) || value instanceof VNode) {
+      // 基本类型、null、VNode 都不会变成响应式。
       return
     }
     var ob;
+    // 如果 value 已经被观察过了，就直接返回它的 Observer 实例
     if (hasOwn(value, '__ob__') && value.__ob__ instanceof Observer) {
       ob = value.__ob__;
     } else if (
+      // 只观测数组和普通对象；服务端渲染时不做；被冻结/不可扩展对象不做；Vue 实例本身不做。
       shouldObserve &&
       !isServerRendering() &&
       (Array.isArray(value) || isPlainObject(value)) &&
@@ -1009,6 +1019,7 @@
       ob = new Observer(value);
     }
     if (asRootData && ob) {
+      // asRootData表示这个对象是某个组件实例的根 $data。后面的 set / del 会用它来阻止运行时往根 $data 上新增/删除属性。
       ob.vmCount++;
     }
     return ob
@@ -1032,6 +1043,7 @@
       return
     }
 
+    // 这是为了兼容用户本来就定义过访问器属性的情况。
     // cater for pre-defined getter/setters
     var getter = property && property.get;
     var setter = property && property.set;
@@ -1045,6 +1057,8 @@
       configurable: true,
       get: function reactiveGetter () {
         var value = getter ? getter.call(obj) : val;
+        // 当某个 watcher 正在求值时，Dep.target 会指向当前 watcher。
+        // 此时读取属性，就会调用 dep.depend()，把当前 watcher 收集进这个属性的依赖列表。
         if (Dep.target) {
           // 依赖收集
           dep.depend();
@@ -1090,10 +1104,6 @@
    * already exist.
    */
   function set (target, key, val) {
-    if (isUndef(target) || isPrimitive(target)
-    ) {
-      warn(("Cannot set reactive property on undefined, null, or primitive value: " + ((target))));
-    }
     if (Array.isArray(target) && isValidArrayIndex(key)) {
       target.length = Math.max(target.length, key);
       target.splice(key, 1, val);
@@ -2029,29 +2039,6 @@
 
   /*  */
 
-  var mark;
-  var measure;
-
-  {
-    var perf = inBrowser && window.performance;
-    /* istanbul ignore if */
-    if (
-      perf &&
-      perf.mark &&
-      perf.measure &&
-      perf.clearMarks &&
-      perf.clearMeasures
-    ) {
-      mark = function (tag) { return perf.mark(tag); };
-      measure = function (name, startTag, endTag) {
-        perf.measure(name, startTag, endTag);
-        perf.clearMarks(startTag);
-        perf.clearMarks(endTag);
-        // perf.clearMeasures(name)
-      };
-    }
-  }
-
   /* not type checking this file because flow doesn't play well with Proxy */
 
   var initProxy;
@@ -2178,6 +2165,29 @@
       keys = Object.keys(val);
       i = keys.length;
       while (i--) { _traverse(val[keys[i]], seen); }
+    }
+  }
+
+  var mark;
+  var measure;
+
+  {
+    var perf = inBrowser && window.performance;
+    /* istanbul ignore if */
+    if (
+      perf &&
+      perf.mark &&
+      perf.measure &&
+      perf.clearMarks &&
+      perf.clearMeasures
+    ) {
+      mark = function (tag) { return perf.mark(tag); };
+      measure = function (name, startTag, endTag) {
+        perf.measure(name, startTag, endTag);
+        perf.clearMarks(startTag);
+        perf.clearMarks(endTag);
+        // perf.clearMeasures(name)
+      };
     }
   }
 
@@ -12090,11 +12100,6 @@
         template = getOuterHTML(el);
       }
       if (template) {
-        /* istanbul ignore if */
-        if (config.performance && mark) {
-          mark('compile');
-        }
-
         var ref = compileToFunctions(template, {
           outputSourceRange: "development" !== 'production',
           shouldDecodeNewlines: shouldDecodeNewlines,
@@ -12106,12 +12111,6 @@
         var staticRenderFns = ref.staticRenderFns;
         options.render = render;
         options.staticRenderFns = staticRenderFns;
-
-        /* istanbul ignore if */
-        if (config.performance && mark) {
-          mark('compile end');
-          measure(("vue " + (this._name) + " compile"), 'compile', 'compile end');
-        }
       }
     }
     return mount.call(this, el, hydrating)

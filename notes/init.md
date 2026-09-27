@@ -305,6 +305,10 @@ export function initExtend (Vue: GlobalAPI) {
 
 ### initAssetRegisters
 
+```txt
+src/core/global-api/assets.js
+```
+
 Vue 2 的全局资源注册 API
 
 ```js
@@ -657,7 +661,9 @@ vnode = render.call(vm._renderProxy, vm.$createElement)
 
 ### initLifecycle
 
+```txt
 src/core/instance/lifecycle.js
+```
 
 ```js
 export function initLifecycle (vm: Component) {
@@ -692,7 +698,9 @@ Vue 生命周期其实是一套状态机。Vue内部通过一些状态标志记�
 
 ### initEvents
 
+```txt
 src/core/instance/events.js
+```
 
 ```js
 export function initEvents (vm: Component) {
@@ -773,7 +781,9 @@ export function updateListeners (
 
 ### initRender
 
+```txt
 src/core/instance/render.js
+```
 
 ```js
 export function initRender (vm: Component) {
@@ -804,7 +814,9 @@ export function initRender (vm: Component) {
 }
 ```
 
+```txt
 src/core/observer/index.js
+```
 
 ```js
 /**
@@ -909,7 +921,9 @@ export function callHook (vm: Component, hook: string) {
 
 ### initInjections
 
+```txt
 src/core/instance/inject.js
+```
 
 ```js
 export function initInjections (vm: Component) {
@@ -969,7 +983,9 @@ inject 本质是：
 
 ### initState
 
+```txt
 src/core/instance/state.js
+```
 
 ```js
 export function initState (vm: Component) {
